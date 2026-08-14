@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl=env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum Fulfilment {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("users")
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  price       Int // stored in Naira (whole numbers, matches the site's pricing)
+  category    String // e.g. "rice", "swallow", "protein", "drinks"
+  imageUrl    String?
+  available   Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  user            User        @relation(fields: [userId], references: [id])
+  userId          String
+  items           OrderItem[]
+  subtotal        Int
+  fulfilment      Fulfilment  @default(DELIVERY)
+  status          OrderStatus @default(PENDING)
+  deliveryAddress String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId String
+  name       String // snapshot of the item name at order time
+  price      Int // snapshot of the item price at order time
+  quantity   Int
+
+  @@map("order_items")
+}

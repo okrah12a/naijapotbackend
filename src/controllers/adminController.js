@@ -1,0 +1,51 @@
+const prisma = require("../prismaClient");
+
+// GET /api/admin/users — admin only
+async function listUsers(req, res, next) {
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: "CUSTOMER" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        createdAt: true,
+        _count: { select: { orders: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(users);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/admin/dashboard/summary — admin only
+// Quick stats for the dashboard landing page.
+async function dashboardSummary(req, res, next) {
+  try {
+    const [userCount, orderCount, menuItemCount, pendingOrders, revenueAgg] = await Promise.all([
+      prisma.user.count({ where: { role: "CUSTOMER" } }),
+      prisma.order.count(),
+      prisma.menuItem.count(),
+      prisma.order.count({ where: { status: "PENDING" } }),
+      prisma.order.aggregate({
+        _sum: { subtotal: true },
+        where: { status: { not: "CANCELLED" } },
+      }),
+    ]);
+
+    res.json({
+      totalUsers: userCount,
+      totalOrders: orderCount,
+      totalMenuItems: menuItemCount,
+      pendingOrders,
+      totalRevenue: revenueAgg._sum.subtotal || 0,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listUsers, dashboardSummary };
