@@ -13,8 +13,28 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
+// Allow the live Netlify site plus local dev/testing origins.
+// Add more local ports here if you test from a different one.
+const allowedOrigins = [
+  process.env.CLIENT_URL,       // e.g. https://naijapot.netlify.app (set in Render env vars)
+  "http://localhost:5173",      // Vite dev server default
+  "http://localhost:3000",      // Common React/other dev server default
+  "http://localhost:8000",      // e.g. `python -m http.server` / `npx serve`
+  "http://127.0.0.1:8000",
+].filter(Boolean);
+
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || "*", credentials: true }));
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g. Postman, curl, server-to-server)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS: " + origin));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(morgan("dev"));
 
